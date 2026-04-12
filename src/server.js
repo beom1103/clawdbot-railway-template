@@ -9,6 +9,12 @@ import httpProxy from "http-proxy";
 import * as tar from "tar";
 
 import { resolveOpenClawEntry } from "./openclaw-entry.js";
+import {
+  materializeRuntimeConfig,
+  resolvePersistentConfigCandidates,
+  resolvePersistentConfigPath,
+  resolveRuntimeConfigPath,
+} from "./runtime-config.js";
 
 // Migrate deprecated CLAWDBOT_* env vars → OPENCLAW_* so existing Railway deployments
 // keep working. Users should update their Railway Variables to use the new names.
@@ -87,23 +93,11 @@ function clawArgs(args) {
 }
 
 function resolveConfigCandidates() {
-  const explicit = process.env.OPENCLAW_CONFIG_PATH?.trim();
-  if (explicit) return [explicit];
-
-  return [path.join(STATE_DIR, "openclaw.json")];
+  return resolvePersistentConfigCandidates(process.env, STATE_DIR);
 }
 
 function configPath() {
-  const candidates = resolveConfigCandidates();
-  for (const candidate of candidates) {
-    try {
-      if (fs.existsSync(candidate)) return candidate;
-    } catch {
-      // ignore
-    }
-  }
-  // Default to canonical even if it doesn't exist yet.
-  return candidates[0] || path.join(STATE_DIR, "openclaw.json");
+  return resolvePersistentConfigPath(process.env, STATE_DIR);
 }
 
 function isConfigured() {
@@ -194,13 +188,10 @@ async function startGateway() {
     OPENCLAW_GATEWAY_TOKEN,
   ];
 
+  const openclawEnv = resolveOpenClawEnv();
   gatewayProc = childProcess.spawn(OPENCLAW_NODE, clawArgs(args), {
     stdio: "inherit",
-    env: {
-      ...process.env,
-      OPENCLAW_STATE_DIR: STATE_DIR,
-      OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-    },
+    env: openclawEnv,
   });
 
   gatewayProc.on("error", (err) => {
@@ -216,6 +207,34 @@ async function startGateway() {
     lastGatewayExit = { code, signal, at: new Date().toISOString() };
     gatewayProc = null;
   });
+}
+
+function resolveOpenClawEnv(options = {}) {
+  const persistentConfig = options.persistentConfig === true;
+  const baseEnv = {
+    ...process.env,
+    ...(options.env || {}),
+    OPENCLAW_STATE_DIR: STATE_DIR,
+    OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
+  };
+
+  if (persistentConfig) {
+    delete baseEnv.OPENCLAW_CONFIG_PATH;
+    return baseEnv;
+  }
+
+  const persistentPath = resolvePersistentConfigPath(baseEnv, STATE_DIR);
+  const runtimePath = resolveRuntimeConfigPath(STATE_DIR, baseEnv);
+  const resolvedConfigPath = materializeRuntimeConfig({
+    env: baseEnv,
+    sourcePath: persistentPath,
+    runtimePath,
+  });
+
+  if (resolvedConfigPath) {
+    baseEnv.OPENCLAW_CONFIG_PATH = resolvedConfigPath;
+  }
+  return baseEnv;
 }
 
 async function runDoctorBestEffort() {
@@ -671,14 +690,21 @@ function buildOnboardArgs(payload) {
 function runCmd(cmd, args, opts = {}) {
   return new Promise((resolve) => {
     const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 120_000;
+    const isOpenClawCommand = cmd === OPENCLAW_NODE && Array.isArray(args) && args[0] === OPENCLAW_ENTRY;
 
     const proc = childProcess.spawn(cmd, args, {
       ...opts,
-      env: {
-        ...process.env,
-        OPENCLAW_STATE_DIR: STATE_DIR,
-        OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-      },
+      env: isOpenClawCommand
+        ? resolveOpenClawEnv({
+            env: opts.env,
+            persistentConfig: opts.persistentConfig === true,
+          })
+        : {
+            ...process.env,
+            ...opts.env,
+            OPENCLAW_STATE_DIR: STATE_DIR,
+            OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
+          },
     });
 
     let out = "";
@@ -749,11 +775,11 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
     // (We also enforce loopback bind since the wrapper proxies externally.)
     // IMPORTANT: Set both gateway.auth.token (server-side) and gateway.remote.token (client-side)
     // to the same value so the Control UI can connect without "token mismatch" errors.
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]));
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.remote.token", OPENCLAW_GATEWAY_TOKEN]));
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.bind", "loopback"]));
-    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]));
+    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]), { persistentConfig: true });
+    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]), { persistentConfig: true });
+    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.remote.token", OPENCLAW_GATEWAY_TOKEN]), { persistentConfig: true });
+    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.bind", "loopback"]), { persistentConfig: true });
+    await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.port", String(INTERNAL_GATEWAY_PORT)]), { persistentConfig: true });
 
     // Railway runs behind a reverse proxy. Trust loopback as a proxy hop so local client detection
     // remains correct when X-Forwarded-* headers are present.
@@ -1439,15 +1465,25 @@ const server = app.listen(PORT, "0.0.0.0", async () => {
     }
   }
 
+  try {
+    fs.writeFileSync(
+      "/usr/local/bin/openclaw",
+      "#!/usr/bin/env bash\nexec node /app/src/openclaw-cli.js \"$@\"\n",
+      { mode: 0o755 },
+    );
+  } catch (err) {
+    console.warn(`[wrapper] failed to install openclaw wrapper: ${String(err)}`);
+  }
+
   // Sync gateway tokens in config with the current env var on every startup.
   // This prevents "gateway token mismatch" when OPENCLAW_GATEWAY_TOKEN changes
   // (e.g. Railway variable update) but the config file still has the old value.
   if (isConfigured() && OPENCLAW_GATEWAY_TOKEN) {
     console.log("[wrapper] syncing gateway tokens in config...");
     try {
-      await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]));
-      await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]));
-      await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.remote.token", OPENCLAW_GATEWAY_TOKEN]));
+      await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.mode", "token"]), { persistentConfig: true });
+      await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]), { persistentConfig: true });
+      await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "gateway.remote.token", OPENCLAW_GATEWAY_TOKEN]), { persistentConfig: true });
       console.log("[wrapper] gateway tokens synced");
     } catch (err) {
       console.warn(`[wrapper] failed to sync gateway tokens: ${String(err)}`);
