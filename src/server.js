@@ -1434,6 +1434,9 @@ const server = app.listen(PORT, "0.0.0.0", async () => {
     fs.mkdirSync(path.join(STATE_DIR, "credentials"), { recursive: true });
   } catch {}
   try {
+    fs.chmodSync(path.join(STATE_DIR, "credentials"), 0o700);
+  } catch {}
+  try {
     fs.chmodSync(STATE_DIR, 0o700);
   } catch {}
 
