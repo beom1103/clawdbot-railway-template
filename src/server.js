@@ -15,6 +15,7 @@ import {
   resolvePersistentConfigPath,
   resolveRuntimeConfigPath,
 } from "./runtime-config.js";
+import { ensureWorkspaceScaffold } from "./workspace-scaffold.js";
 
 // Migrate deprecated CLAWDBOT_* env vars → OPENCLAW_* so existing Railway deployments
 // keep working. Users should update their Railway Variables to use the new names.
@@ -1439,6 +1440,12 @@ const server = app.listen(PORT, "0.0.0.0", async () => {
   try {
     fs.chmodSync(STATE_DIR, 0o700);
   } catch {}
+  try {
+    ensureWorkspaceScaffold({ workspaceDir: WORKSPACE_DIR, now: new Date() });
+    console.log("[wrapper] workspace scaffold synced");
+  } catch (err) {
+    console.warn(`[wrapper] workspace scaffold failed (continuing): ${String(err)}`);
+  }
 
   console.log(`[wrapper] gateway token: ${OPENCLAW_GATEWAY_TOKEN ? "(set)" : "(missing)"}`);
   console.log(`[wrapper] gateway target: ${GATEWAY_TARGET}`);
