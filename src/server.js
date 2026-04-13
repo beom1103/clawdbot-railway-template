@@ -14,6 +14,7 @@ import {
   resolvePersistentConfigCandidates,
   resolvePersistentConfigPath,
   resolveRuntimeConfigPath,
+  syncManagedPersistentConfig,
 } from "./runtime-config.js";
 import { ensureWorkspaceScaffold } from "./workspace-scaffold.js";
 
@@ -129,6 +130,18 @@ function isConfigured() {
     } catch (err) {
       console.warn(`[migration] Failed to rename ${legacy}: ${err}`);
     }
+  }
+})();
+
+(function normalizeManagedConfigFile() {
+  const persistentPath = resolvePersistentConfigPath(process.env, STATE_DIR);
+  try {
+    syncManagedPersistentConfig({
+      sourcePath: persistentPath,
+      workspaceDir: WORKSPACE_DIR,
+    });
+  } catch (err) {
+    console.warn(`[migration] Failed to normalize managed config: ${err}`);
   }
 })();
 

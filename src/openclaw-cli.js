@@ -6,6 +6,7 @@ import {
   materializeRuntimeConfig,
   resolvePersistentConfigPath,
   resolveRuntimeConfigPath,
+  syncManagedPersistentConfig,
 } from "./runtime-config.js";
 
 const STATE_DIR =
@@ -17,6 +18,10 @@ const WORKSPACE_DIR =
 const OPENCLAW_ENTRY = process.env.OPENCLAW_ENTRY?.trim() || "/openclaw/dist/entry.js";
 
 const persistentConfigPath = resolvePersistentConfigPath(process.env, STATE_DIR);
+syncManagedPersistentConfig({
+  sourcePath: persistentConfigPath,
+  workspaceDir: WORKSPACE_DIR,
+});
 const runtimeConfigPath = resolveRuntimeConfigPath(STATE_DIR, process.env);
 const resolvedConfigPath = materializeRuntimeConfig({
   env: process.env,

@@ -18,6 +18,18 @@ test("ensureWorkspaceScaffold seeds premarket agent persona files", () => {
     path.join(workspaceDir, "agents", "risk-execution", "SOUL.md"),
     "utf8",
   );
+  const buildSoul = fs.readFileSync(
+    path.join(workspaceDir, "agents", "build", "SOUL.md"),
+    "utf8",
+  );
+  const marketSoul = fs.readFileSync(
+    path.join(workspaceDir, "agents", "market-strategy", "SOUL.md"),
+    "utf8",
+  );
+  const quantSoul = fs.readFileSync(
+    path.join(workspaceDir, "agents", "quant-trader", "SOUL.md"),
+    "utf8",
+  );
   const gatekeeperTools = fs.readFileSync(
     path.join(workspaceDir, "agents", "build", "TOOLS.md"),
     "utf8",
@@ -25,6 +37,13 @@ test("ensureWorkspaceScaffold seeds premarket agent persona files", () => {
 
   assert.match(riskSoul, /JSON/);
   assert.match(riskSoul, /position_size_pct/);
+  assert.match(buildSoul, /rb-runtime-policy-propose/);
+  assert.match(buildSoul, /approve/);
+  assert.match(buildSoul, /sessions_send/);
+  assert.match(buildSoul, /현재 Discord 채널/);
+  assert.match(riskSoul, /OPENCLAW_INTRADAY_SUMMARY/);
+  assert.match(marketSoul, /OPENCLAW_INTRADAY_SUMMARY/);
+  assert.match(quantSoul, /OPENCLAW_INTRADAY_SUMMARY/);
   assert.match(gatekeeperTools, /approve/);
   assert.equal(
     fs.existsSync(path.join(workspaceDir, "agents", "market-strategy", "SOUL.md")),
