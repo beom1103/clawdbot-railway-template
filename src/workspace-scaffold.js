@@ -276,6 +276,14 @@ export function ensureWorkspaceScaffold({ workspaceDir, now = new Date() }) {
   const agentsDir = path.join(workspaceDir, "agents");
   fs.mkdirSync(agentsDir, { recursive: true });
 
+  const legacyAgents = ["gh-railway"];
+  for (const agentId of legacyAgents) {
+    const legacyDir = path.join(agentsDir, agentId);
+    if (fs.existsSync(legacyDir)) {
+      fs.rmSync(legacyDir, { recursive: true, force: true });
+    }
+  }
+
   for (const [agentId, files] of Object.entries(PERSONAS)) {
     const agentDir = path.join(agentsDir, agentId);
     fs.mkdirSync(path.join(agentDir, "memory"), { recursive: true });

@@ -51,3 +51,18 @@ test("ensureWorkspaceScaffold refreshes bundled persona files on rerun", () => {
   assert.notEqual(riskSoul, "stale\n");
   assert.match(riskSoul, /risk-execution/);
 });
+
+test("ensureWorkspaceScaffold removes legacy gh-railway workspace if present", () => {
+  const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-workspace-"));
+  const legacyDir = path.join(workspaceDir, "agents", "gh-railway");
+  fs.mkdirSync(legacyDir, { recursive: true });
+  fs.writeFileSync(path.join(legacyDir, "SOUL.md"), "legacy\n", "utf8");
+
+  ensureWorkspaceScaffold({
+    workspaceDir,
+    now: new Date("2026-04-13T00:30:00Z"),
+  });
+
+  assert.equal(fs.existsSync(legacyDir), false);
+  assert.equal(fs.existsSync(path.join(workspaceDir, "agents", "build", "SOUL.md")), true);
+});
