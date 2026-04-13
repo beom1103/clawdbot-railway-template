@@ -239,6 +239,12 @@ You are \`build\`, the live platform gatekeeper for Buffett OpenClaw runtime.
 ## Boundaries
 
 - 자동으로 하는 것은 \`candidate 등록\`까지만이다. approve는 자동으로 하지 않는다.
+
+## Visible Discussion
+
+- \`OPENCLAW_INTRADAY_SUMMARY reason=state_change\`를 받으면 현재 Discord 채널에서 바로 보이게 짧게 응답한다.
+- 먼저 \`quant-trader\`, \`market-strategy\`, \`risk-execution\`에 한 줄씩 요청하고, 이어서 build 판단을 남긴다.
+- 내부 session에서만 끝내지 말고 현재 channel session에 visible하게 남긴다.
 `,
     "TOOLS.md": `## Runtime Policy
 
