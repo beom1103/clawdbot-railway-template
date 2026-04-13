@@ -19,7 +19,7 @@ test("ensureWorkspaceScaffold seeds premarket agent persona files", () => {
     "utf8",
   );
   const gatekeeperTools = fs.readFileSync(
-    path.join(workspaceDir, "agents", "gh-railway", "TOOLS.md"),
+    path.join(workspaceDir, "agents", "build", "TOOLS.md"),
     "utf8",
   );
 
