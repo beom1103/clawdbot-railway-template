@@ -39,11 +39,16 @@ test("ensureWorkspaceScaffold seeds premarket agent persona files", () => {
   assert.match(riskSoul, /position_size_pct/);
   assert.match(buildSoul, /rb-runtime-policy-propose/);
   assert.match(buildSoul, /approve/);
-  assert.match(buildSoul, /sessions_send/);
   assert.match(buildSoul, /현재 Discord 채널/);
+  assert.match(buildSoul, /공개 발언들을 읽은 뒤 마지막에 synthesis만 남긴다/);
+  assert.match(buildSoul, /handoff 실패/);
   assert.match(riskSoul, /OPENCLAW_INTRADAY_SUMMARY/);
+  assert.match(riskSoul, /compact JSON/);
+  assert.match(riskSoul, /standalone JSON fragment/);
   assert.match(marketSoul, /OPENCLAW_INTRADAY_SUMMARY/);
+  assert.match(marketSoul, /모든 outward message는 한국어/);
   assert.match(quantSoul, /OPENCLAW_INTRADAY_SUMMARY/);
+  assert.match(quantSoul, /모든 outward message는 한국어/);
   assert.match(gatekeeperTools, /approve/);
   assert.equal(
     fs.existsSync(path.join(workspaceDir, "agents", "market-strategy", "SOUL.md")),
