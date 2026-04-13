@@ -1005,6 +1005,7 @@ const ALLOWED_CONSOLE_COMMANDS = new Set([
   "gateway.restart",
   "gateway.stop",
   "gateway.start",
+  "workspace.scaffold.sync",
 
   // OpenClaw CLI helpers
   "openclaw.version",
@@ -1048,6 +1049,10 @@ app.post("/setup/api/console/run", requireSetupAuth, async (req, res) => {
     if (cmd === "gateway.start") {
       const r = await ensureGatewayRunning();
       return res.json({ ok: Boolean(r.ok), output: r.ok ? "Gateway started.\n" : `Gateway not started: ${r.reason}\n` });
+    }
+    if (cmd === "workspace.scaffold.sync") {
+      ensureWorkspaceScaffold({ workspaceDir: WORKSPACE_DIR, now: new Date() });
+      return res.json({ ok: true, output: "Workspace scaffold synced.\n" });
     }
 
     if (cmd === "openclaw.version") {
