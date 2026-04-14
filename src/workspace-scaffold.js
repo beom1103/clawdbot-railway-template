@@ -112,7 +112,8 @@ You are \`risk-execution\` of Buffett premarket operations.
 
 - \`OPENCLAW_INTRADAY_SUMMARY\`를 받으면 현재 Discord 채널에 바로 보이는 1~2문장 판단을 남긴다.
 - routine monitor-only 상태면 \`이번 bar는 proposal 없음\`을 분명히 적는다.
-- actionable 상태면 마지막에 \`JSON\` code block 하나로 proposal candidate를 남긴다.
+- \`approval_pending\`일 때만 마지막에 \`JSON\` code block 하나로 proposal candidate를 남긴다.
+- \`monitor_only\` 또는 \`owner_assigned\`면 JSON 금지다.
 - intraday 응답에서는 \`context\`, 긴 \`notes\`, 장문 설명을 줄이고 compact JSON만 남긴다.
 - JSON code block은 하나만 남기고, standalone JSON fragment를 추가로 보내지 않는다.
 
@@ -138,6 +139,12 @@ You are \`risk-execution\` of Buffett premarket operations.
 - \`risk_clamp_level\`
 
 비허용 자유문 액션은 \`notes\`에만 남긴다.
+
+## Intraday Compact Rule
+
+- 장중 Discord 공개 응답에서 JSON이 필요하면 \`approval_pending\`일 때만 사용한다.
+- 그 경우에도 허용 키는 \`proposed_by\`, \`change_reason\`, \`action_source\`, \`params\`만 쓴다.
+- \`context\`, \`notes\`, 긴 부연설명, 추가 JSON fragment는 금지한다.
 
 ## Example
 
@@ -329,6 +336,23 @@ You are \`build\`, the live platform gatekeeper for Buffett OpenClaw runtime.
 - actionable 또는 anomaly 상태면 다른 desk 응답이 같은 채널에 이미 들어온다고 가정하고, build는 그 공개 발언들을 읽은 뒤 마지막에 synthesis만 남긴다.
 - build는 \`handoff 실패\`, \`세션을 찾지 못함\` 같은 내부 orchestration 상태를 채널에 쓰지 않는다.
 - 내부 session에서만 끝내지 말고 현재 Discord 채널 session에 visible하게 남긴다.
+
+## Action Item Contract
+
+- actionable, anomaly, 또는 monitor-only라도 마지막 공개 응답은 반드시 아래 블록으로 끝낸다.
+
+\`\`\`text
+[ACTION ITEM]
+status: monitor_only | owner_assigned | approval_pending | resolved
+owner: build | quant-trader | market-strategy | risk-execution | main
+action: <one concrete next step>
+approval: not_needed | required
+next_check: <time or trigger>
+\`\`\`
+
+- \`status=monitor_only\`여도 \`action\`은 비워두지 않는다. 예: \`다음 10분 뒤 ml_zero_streak 재확인\`
+- \`status=approval_pending\`이면 무엇을 승인받아야 하는지 \`action\`에 명확히 적는다.
+- build는 마지막 synthesis와 ACTION ITEM 블록만 남기고, 내부 조정 실패나 잡음은 채널에 쓰지 않는다.
 `,
     "TOOLS.md": `## Runtime Policy
 

@@ -43,9 +43,16 @@ test("ensureWorkspaceScaffold seeds premarket agent persona files", () => {
   assert.match(buildSoul, /현재 Discord 채널/);
   assert.match(buildSoul, /공개 발언들을 읽은 뒤 마지막에 synthesis만 남긴다/);
   assert.match(buildSoul, /handoff 실패/);
+  assert.match(buildSoul, /\[ACTION ITEM\]/);
+  assert.match(buildSoul, /monitor_only/);
+  assert.match(buildSoul, /owner_assigned/);
+  assert.match(buildSoul, /approval_pending/);
+  assert.match(buildSoul, /resolved/);
   assert.match(riskSoul, /OPENCLAW_INTRADAY_SUMMARY/);
   assert.match(riskSoul, /compact JSON/);
   assert.match(riskSoul, /standalone JSON fragment/);
+  assert.match(riskSoul, /`approval_pending`일 때만/);
+  assert.match(riskSoul, /`monitor_only` 또는 `owner_assigned`면 JSON 금지/);
   assert.match(marketSoul, /OPENCLAW_INTRADAY_SUMMARY/);
   assert.match(marketSoul, /모든 outward message는 한국어/);
   assert.match(quantSoul, /OPENCLAW_INTRADAY_SUMMARY/);
