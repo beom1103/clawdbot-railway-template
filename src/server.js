@@ -16,6 +16,7 @@ import {
   resolveRuntimeConfigPath,
   syncManagedPersistentConfig,
 } from "./runtime-config.js";
+import { runSessionJanitor } from "./session-janitor.js";
 import { ensureWorkspaceScaffold } from "./workspace-scaffold.js";
 
 // Migrate deprecated CLAWDBOT_* env vars → OPENCLAW_* so existing Railway deployments
@@ -49,6 +50,11 @@ const STATE_DIR =
 const WORKSPACE_DIR =
   process.env.OPENCLAW_WORKSPACE_DIR?.trim() ||
   path.join(STATE_DIR, "workspace");
+const SESSION_JANITOR_INTERVAL_MS = Math.max(
+  60_000,
+  Number.parseInt(process.env.SESSION_JANITOR_INTERVAL_MS ?? `${10 * 60 * 1000}`, 10) || 10 * 60 * 1000,
+);
+let sessionJanitorTimer = null;
 
 // Protect /setup with a user-provided password.
 const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
@@ -147,6 +153,29 @@ function isConfigured() {
 
 let gatewayProc = null;
 let gatewayStarting = null;
+
+function runSessionJanitorOnce({ now = new Date() } = {}) {
+  const summary = runSessionJanitor({
+    stateDir: STATE_DIR,
+    now,
+  });
+  console.log(
+    `[wrapper] session janitor: scanned=${summary.scannedAgents} pruned=${summary.prunedKeys} archived=${summary.archivedFiles}`,
+  );
+  return summary;
+}
+
+function ensureSessionJanitorTimer() {
+  if (sessionJanitorTimer) return;
+  sessionJanitorTimer = setInterval(() => {
+    try {
+      runSessionJanitorOnce({ now: new Date() });
+    } catch (err) {
+      console.warn(`[wrapper] session janitor failed: ${String(err)}`);
+    }
+  }, SESSION_JANITOR_INTERVAL_MS);
+  if (typeof sessionJanitorTimer.unref === "function") sessionJanitorTimer.unref();
+}
 
 // Debug breadcrumbs for common Railway failures (502 / "Application failed to respond").
 let lastGatewayError = null;
@@ -1019,6 +1048,7 @@ const ALLOWED_CONSOLE_COMMANDS = new Set([
   "gateway.stop",
   "gateway.start",
   "workspace.scaffold.sync",
+  "sessions.janitor.run",
 
   // OpenClaw CLI helpers
   "openclaw.version",
@@ -1065,7 +1095,18 @@ app.post("/setup/api/console/run", requireSetupAuth, async (req, res) => {
     }
     if (cmd === "workspace.scaffold.sync") {
       ensureWorkspaceScaffold({ workspaceDir: WORKSPACE_DIR, now: new Date() });
-      return res.json({ ok: true, output: "Workspace scaffold synced.\n" });
+      const summary = runSessionJanitorOnce({ now: new Date() });
+      return res.json({
+        ok: true,
+        output: `Workspace scaffold synced.\nSession janitor scanned=${summary.scannedAgents} pruned=${summary.prunedKeys} archived=${summary.archivedFiles}\n`,
+      });
+    }
+    if (cmd === "sessions.janitor.run") {
+      const summary = runSessionJanitorOnce({ now: new Date() });
+      return res.json({
+        ok: true,
+        output: `Session janitor scanned=${summary.scannedAgents} pruned=${summary.prunedKeys} archived=${summary.archivedFiles}\n`,
+      });
     }
 
     if (cmd === "openclaw.version") {
@@ -1461,6 +1502,8 @@ const server = app.listen(PORT, "0.0.0.0", async () => {
   try {
     ensureWorkspaceScaffold({ workspaceDir: WORKSPACE_DIR, now: new Date() });
     console.log("[wrapper] workspace scaffold synced");
+    runSessionJanitorOnce({ now: new Date() });
+    ensureSessionJanitorTimer();
   } catch (err) {
     console.warn(`[wrapper] workspace scaffold failed (continuing): ${String(err)}`);
   }

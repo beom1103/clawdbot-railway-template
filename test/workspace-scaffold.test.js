@@ -15,6 +15,8 @@ test("ensureWorkspaceScaffold creates MEMORY.md and daily memory notes", () => {
   });
 
   assert.equal(fs.existsSync(path.join(workspaceDir, "MEMORY.md")), true);
+  assert.equal(fs.existsSync(path.join(workspaceDir, "AGENTS.md")), true);
+  assert.equal(fs.existsSync(path.join(workspaceDir, "SOUL.md")), true);
   assert.equal(fs.existsSync(path.join(workspaceDir, "memory", "2026-04-12.md")), true);
   assert.equal(fs.existsSync(path.join(workspaceDir, "memory", "2026-04-11.md")), true);
   assert.equal(

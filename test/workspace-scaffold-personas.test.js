@@ -34,6 +34,7 @@ test("ensureWorkspaceScaffold seeds premarket agent persona files", () => {
     path.join(workspaceDir, "agents", "build", "TOOLS.md"),
     "utf8",
   );
+  const mainSoul = fs.readFileSync(path.join(workspaceDir, "SOUL.md"), "utf8");
 
   assert.match(riskSoul, /JSON/);
   assert.match(riskSoul, /position_size_pct/);
@@ -49,6 +50,8 @@ test("ensureWorkspaceScaffold seeds premarket agent persona files", () => {
   assert.match(marketSoul, /모든 outward message는 한국어/);
   assert.match(quantSoul, /OPENCLAW_INTRADAY_SUMMARY/);
   assert.match(quantSoul, /모든 outward message는 한국어/);
+  assert.match(mainSoul, /session janitor/);
+  assert.match(mainSoul, /SESSION_RESET_REQUEST/);
   assert.match(gatekeeperTools, /approve/);
   assert.equal(
     fs.existsSync(path.join(workspaceDir, "agents", "market-strategy", "SOUL.md")),
